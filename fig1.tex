@@ -1,0 +1,296 @@
+\documentclass[tikz, border=10pt]{standalone}
+\usepackage{graphicx}
+% ==================================================================
+% 字体设置：Helvetica
+% ==================================================================
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% 请确保当前文件夹中包含素材图片：asset.pdf
+\usetikzlibrary{calc, positioning, fit, backgrounds, shapes.geometric, shapes.arrows, patterns, decorations.pathmorphing, arrows.meta, shapes.symbols, shadows}
+
+\begin{document}
+	
+	% --- 颜色定义 ---
+	\definecolor{liquidblue}{RGB}{86, 160, 211}   
+	\definecolor{liquidorange}{RGB}{245, 130, 49} 
+	\definecolor{slate}{RGB}{80, 90, 100}      
+	\definecolor{bg_panel}{RGB}{235, 242, 250}    
+	\definecolor{bg_stable}{RGB}{233, 247, 239}   % Mint Green
+	\definecolor{bg_barrier}{RGB}{254, 249, 231}  % Sand/Beige (Barrier)
+	\definecolor{bg_gut}{RGB}{245, 238, 248}      % Pale Purple
+	\definecolor{bg_systemic}{RGB}{250, 219, 216} % Soft Red (Systemic)
+	
+	% 🎯 修改为淡淡的暮橙色/浅桃色，呼应Oral菌的橙色
+	\definecolor{bg_other}{RGB}{254, 233, 216}    % Pale Peach/Orange
+	
+	% --- Trajectory Colors ---
+	\definecolor{barrier_traj_col}{RGB}{180, 150, 50} 
+	\definecolor{gut_traj_col}{RGB}{140, 100, 180}
+	
+	% --- 全局垂直坐标定义 ---
+	\def\yTitle{6.6}       
+	\def\yImg{5.3}         
+	\def\yArrowStart{4.1}  
+	\def\yArrowSplit{3.5}  
+	\def\yArrowEnd{2.9}    
+	\def\yQMPRMP{2.5}      
+	\def\yCharts{0.3}     
+	\def\yObs{-0.4}        
+	\def\yBgBottom{-2.0}   
+	\def \yBoxplot{-7.9}
+	\begin{tikzpicture}[font=\sffamily]
+		
+		% ========== 组件宏定义 ==========
+		
+		\newcommand{\drawPill}[2]{
+			\begin{scope}[shift={(#1)}, rotate=#2, scale=0.3] 
+				\fill[white] (-0.8, -0.4) rectangle (0, 0.4);
+				\fill[gray!30] (0, -0.4) rectangle (0.8, 0.4);
+				\fill[white] (-0.8, 0) circle (0.4);
+				\fill[gray!30] (0.8, 0) circle (0.4);
+				\draw[black!50, thin] (-0.8, -0.4) -- (0.8, -0.4);
+				\draw[black!50, thin] (-0.8, 0.4) -- (0.8, 0.4);
+				\draw[black!50, thin] (-0.8, 0.4) arc (90:270:0.4);
+				\draw[black!50, thin] (0.8, -0.4) arc (-90:90:0.4);
+				\draw[black!50, thin] (0, -0.4) -- (0, 0.4);
+			\end{scope}
+		}
+		
+		\newcommand{\drawBeakerAbs}[3]{
+			\begin{scope}
+				\def\beakerW{1.8}
+				\def\beakerH{2.5}
+				\fill[liquidblue, opacity=#3] (-\beakerW/2+0.1, 0.1) rectangle (\beakerW/2-0.1, {0.1+#2});
+				\fill[liquidorange] (-\beakerW/2+0.1, {0.1+#2}) rectangle (\beakerW/2-0.1, {0.1+#2+#1});
+				\draw[black!20] (-\beakerW/2+0.1, {0.1+#2+#1}) -- (\beakerW/2-0.1, {0.1+#2+#1});
+				\draw[thick, slate] (-\beakerW/2, \beakerH) -- (-\beakerW/2, 0.2) arc(180:360:{\beakerW/2} and 0.2) -- (\beakerW/2, \beakerH);
+				\draw[thick, slate] (0,0) ellipse ({\beakerW/2} and 0.2);
+				\draw[thick, slate] (0,\beakerH) ellipse ({\beakerW/2} and 0.2);
+				\foreach \y in {0.5, 1.0, 1.5, 2.0} \draw[slate!50] (\beakerW/2-0.3, \y) -- (\beakerW/2, \y);
+			\end{scope}
+		}
+		
+		\newcommand{\drawPieRMP}[1]{
+			\begin{scope}
+				\pgfmathsetmacro{\angleBlue}{#1 * 360}
+				\def\radius{1.3} 
+				\ifdim #1 pt > 0.001pt
+				\fill[liquidorange] (0,0) -- (90:\radius) arc (90:{90-\angleBlue}:\radius) -- cycle;
+				\fi
+				\ifdim #1 pt < 0.999pt
+				\fill[liquidblue] (0,0) -- ({90-\angleBlue}:\radius) arc ({90-\angleBlue}:{90-360}:\radius) -- cycle;
+				\fi
+				\draw[thick, slate] (0,0) circle (\radius);
+			\end{scope}
+		}
+		
+		\newcommand{\dotsOral}[2]{\foreach \i in {1,...,#2} \fill[liquidorange] ($(#1) + (rand*0.4, rand*0.4)$) circle (2pt);}
+		\newcommand{\dotsGut}[2]{\foreach \i in {1,...,#2} \fill[liquidblue] ($(#1) + (rand*0.5, rand*0.4)$) circle (2pt);}
+		\newcommand{\dotsGutBlue}[2]{\foreach \i in {1,...,#2} \fill[liquidorange] ($(#1) + (rand*0.5, rand*0.4)$) circle (2pt);}
+		
+		\newcommand{\drawFlowArrow}{
+			\begin{scope}[line width=1.5pt, slate, rounded corners=5pt]
+				\draw (0, \yArrowStart) -- (0, \yArrowSplit); 
+				\draw[-{Latex[scale=1.1]}] (0, \yArrowSplit) -| (-1.2, \yArrowEnd); 
+				\draw[-{Latex[scale=1.1]}] (0, \yArrowSplit) -| (1.2, \yArrowEnd);  
+			\end{scope}
+		}
+		
+		% =========================================================
+		% 主体布局
+		% =========================================================
+		
+		\begin{scope}[shift={(2.5, 8.8)}] 
+			\begin{scope}[shift={(0, -0.8)}, font=\small] 
+				\fill[liquidorange] (-2,0) circle (3pt) node[right, black, xshift=2pt] {Oral Bacteria};
+				\fill[liquidblue] (0.7, -0.1) rectangle (1.0, 0.1) node[right, black, xshift=2pt] at (1.0,0) {Gut Bacteria};
+				\draw[-{Latex}, thick, green!60!black] (3.2,0) -- (4.0,0) node[right, black, xshift=2pt] {Intact Barrier};
+				
+				\draw[-{Latex}, thick, red] (6.4, 0.08) -- (7.3, 0.08); 
+				\draw[-{Latex}, thick, red] (6.4, -0.08) -- (7.3, -0.08);
+				\node[right, black, xshift=2pt] at (7.2,0) {Oral Input};
+				
+				\shade[inner color=red!80, outer color=bg_panel, opacity=0.8] (9.4, 0) circle (0.3);
+				\node[right, black, xshift=2pt] at (9.7, 0) {Inflammation};
+				
+				\drawPill{(12.25, 0)}{45}
+				\node[right, black, xshift=2pt] at (12.4, 0) {Antibiotics};
+			\end{scope}
+		\end{scope}
+		
+		\node[rotate=90, font=\bfseries\large, anchor=south, align=center, text=slate] at (-2.8, 5.0) {Anatomical\\Mechanism};
+		\node[rotate=90, font=\bfseries\large, anchor=south, align=center, text=slate] at (-2.8, -0.5) {Quantification};
+		
+		% === PANEL 1: STABLE STATE ===
+		\begin{scope}[shift={(0,0)}]
+			\fill[bg_stable, rounded corners=10pt] (-2.2, \yBgBottom) rectangle (2.2, 7.5);
+			\node[align=center, anchor=north, text width=4.2cm] at (0, 7.4) {\textbf{\Large Stable State}\\[0.1cm]};
+			
+			\node[inner sep=0pt, anchor=center] (Mouse1) at (-1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=4.8cm 8.0cm 16.8cm 4.5cm, clip]{asset.pdf}
+			};
+			\node[inner sep=0pt, anchor=center] (Gut1) at (1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=12.7cm 8.1cm 8.4cm 4.6cm, clip]{asset.pdf}
+			};
+			\draw[-{Latex}, ultra thick, green!60!black] ($(Mouse1.east)+(0.1,0)$) -- ($(Gut1.west)-(0.1,0)$);
+			\dotsOral{Mouse1.center}{8} \dotsGut{Gut1.center}{10} \dotsGutBlue{Gut1.center}{1}
+			
+			\drawFlowArrow
+			\node[font=\bfseries\small] at (-1.2, \yQMPRMP) {QMP};
+			\node[font=\bfseries\small] at (1.2, \yQMPRMP) {RMP};  
+			\begin{scope}[shift={(-1.2, \yCharts)}, scale=0.6] \drawBeakerAbs{0.25}{1.65}{1} \end{scope}
+			\begin{scope}[shift={(1.2, {\yCharts+0.75})}, scale=0.6] \drawPieRMP{0.02} \end{scope}
+			\node[align=center, font=\scriptsize, anchor=north] at (0, \yObs) {\textbf{Observation:}\\Low Oral \%\\(Baseline)};
+		\end{scope}
+		
+		% === PANEL 2: BARRIER LOSS ===
+		\begin{scope}[shift={(4.8,0)}]
+			\fill[bg_barrier, rounded corners=10pt] (-2.2, \yBgBottom) rectangle (2.3, 7.5);
+			\node[align=center, anchor=north, text width=4.2cm] at (0, 7.4) {\textbf{\Large Increased oral input}\\[0.1cm]};
+			
+			\node[inner sep=0pt, anchor=center] (Mouse2) at (-1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=4.8cm 8.0cm 16.8cm 4.5cm, clip]{asset.pdf}
+			};
+			\node[inner sep=0pt, anchor=center] (Gut2) at (1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=12.7cm 8.1cm 8.4cm 4.6cm, clip]{asset.pdf}
+			};
+			\draw[-{Latex}, ultra thick, red] ($(Mouse2.east)+(0.1, 0.15)$) -- ($(Gut2.west)-(0.1, -0.15)$);
+			\draw[-{Latex}, ultra thick, red] ($(Mouse2.east)+(0.1, -0.15)$) -- ($(Gut2.west)-(0.1, 0.15)$);
+			\dotsOral{Mouse2.center}{8} \dotsGut{Gut2.center}{10} \dotsGutBlue{Gut2.center}{8}
+			
+			\drawFlowArrow
+			\node[font=\bfseries\small] at (-1.2, \yQMPRMP) {QMP}; 
+			\node[font=\bfseries\small] at (1.2, \yQMPRMP) {RMP}; 
+			\begin{scope}[shift={(-1.2, \yCharts)}, scale=0.6] \drawBeakerAbs{.5}{1.65}{1} \coordinate (source_barrier_qmp) at (0,0.5); \end{scope}
+			\begin{scope}[shift={(1.2, {\yCharts+0.75})}, scale=0.6] \drawPieRMP{0.35} \coordinate (source_barrier_rmp) at (0,0); \end{scope}
+			\node[align=center, font=\scriptsize, anchor=north] at (0, \yObs) {\textbf{Observation:}\\High Oral \%\\(Elevated Input)};
+		\end{scope}
+		
+		% === PANEL 3: GUT DEPLETION ===
+		\begin{scope}[shift={(9.6,0)}]
+			\fill[bg_gut, rounded corners=10pt] (-2.2, \yBgBottom) rectangle (2.2, 7.5);
+			\node[align=center, anchor=north, text width=4.2cm] at (0, 7.4) {\textbf{\Large Resident gut depletion}\\[0.1cm]};
+			
+			\node[inner sep=0pt, anchor=center] (Mouse3) at (-1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=4.8cm 8.0cm 16.8cm 4.5cm, clip]{asset.pdf}
+			};
+			\node[inner sep=0pt, anchor=center] (Gut3) at (1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=12.7cm 8.1cm 8.4cm 4.6cm, clip]{asset.pdf}
+			};
+			\shade[inner color=red!80, outer color=bg_panel, opacity=0.6] ($(Gut3.center) + (0.5, 0.7)$) ellipse (0.43cm and 0.4cm);
+			\shade[inner color=red!80, outer color=bg_panel, opacity=0.6] ($(Gut3.center) + (-0.5, -0.25)$) ellipse (0.28cm and 0.3cm);
+			\draw[-{Latex}, ultra thick, green!60!black] ($(Mouse3.east)+(0.1,0)$) -- ($(Gut3.west)-(0.1,0)$);
+			\dotsOral{Mouse3.center}{8} \dotsGut{Gut3.center}{3} \dotsGutBlue{Gut3.center}{2}
+			
+			\drawFlowArrow
+			\node[font=\bfseries\small] at (-1.2, \yQMPRMP) {QMP}; 
+			\node[font=\bfseries\small] at (1.2, \yQMPRMP) {RMP}; 
+			\begin{scope}[shift={(-1.2, \yCharts)}, scale=0.6] \drawBeakerAbs{0.25}{0.75}{1} \coordinate (source_depletion_qmp) at (0,0.5); \end{scope}
+			\begin{scope}[shift={(1.2, {\yCharts+0.75})}, scale=0.6] \drawPieRMP{0.35} \coordinate (source_depletion_rmp) at (0,0); \end{scope}
+			\node[align=center, font=\scriptsize, anchor=north] at (0, \yObs) {\textbf{Observation:}\\High Oral \%\\(Resident Loss)};
+		\end{scope}
+		
+		% === PANEL 4: ORAL EXPANSION ===
+		\begin{scope}[shift={(14.4,0)}]
+			\fill[bg_other, rounded corners=10pt] (-2.2, \yBgBottom) rectangle (2.2, 7.5);
+			\node[align=center, anchor=north, text width=4.2cm] at (0, 7.4) {\textbf{\Large Oral expansion}\\[0.1cm]};
+			
+			\node[inner sep=0pt, anchor=center] (Mouse4) at (-1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=4.8cm 8.0cm 16.8cm 4.5cm, clip]{asset.pdf}
+			};
+			\node[inner sep=0pt, anchor=center] (Gut4) at (1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=12.7cm 8.1cm 8.4cm 4.6cm, clip]{asset.pdf}
+			};
+			\draw[-{Latex}, ultra thick, green!60!black] ($(Mouse4.east)+(0.1,0)$) -- ($(Gut4.west)-(0.1,0)$);
+			\dotsOral{Mouse4.center}{8} \dotsGut{Gut4.center}{10} \dotsGutBlue{Gut4.center}{8}
+			
+			\drawFlowArrow
+			\node[font=\bfseries\small] at (-1.2, \yQMPRMP) {QMP};
+			\node[font=\bfseries\small] at (1.2, \yQMPRMP) {RMP};
+			
+			\begin{scope}[shift={(-1.2, \yCharts)}, scale=0.6] \drawBeakerAbs{0.8}{1.65}{1} \end{scope}
+			\begin{scope}[shift={(1.2, {\yCharts+0.75})}, scale=0.6] \drawPieRMP{0.35} \end{scope}
+			\node[align=center, font=\scriptsize, anchor=north] at (0, \yObs) {\textbf{Observation:}\\High Oral \%\\(In-situ Expansion)};
+		\end{scope}
+		
+		% === PANEL 5: SYSTEMIC WIPEOUT ===
+		\begin{scope}[shift={(19.2,0)}]
+			\fill[bg_systemic, rounded corners=10pt] (-2.2, \yBgBottom) rectangle (2.2, 7.5);
+			\node[align=center, anchor=north, text width=4.2cm] at (0, 7.4) {\textbf{\Large Systemic microbial depletion}\\[0.1cm]};
+			
+			\node[inner sep=0pt, anchor=center] (Mouse5) at (-1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=4.8cm 8.0cm 16.8cm 4.5cm, clip]{asset.pdf}
+			};
+			\node[inner sep=0pt, anchor=center] (Gut5) at (1.3, \yImg) {
+				\includegraphics[width=1.8cm, height=2cm, keepaspectratio, trim=12.7cm 8.1cm 8.4cm 4.6cm, clip]{asset.pdf}
+			};
+			\draw[-{Latex}, ultra thick, green!60!black] ($(Mouse5.east)+(0.1,0)$) -- ($(Gut5.west)-(0.1,0)$);
+			\drawPill{$(Mouse5.center)+(-0.2, 0.1)$}{30}
+			\drawPill{$(Gut5.center)+(0.1, 0.3)$}{-20}
+			
+			% 🎯 纯手工摆放细菌：放弃 rand 随机，避免点位受到前方代码修改的影响，保证绝对不出错。
+			\fill[liquidorange] ($(Mouse5.center) + (0.2, -0.15)$) circle (2pt);
+			\fill[liquidorange] ($(Mouse5.center) + (-0.1, 0.35)$) circle (2pt);
+			\fill[liquidblue] ($(Gut5.center) + (0.4, 0.05)$) circle (2pt);
+			\fill[liquidorange] ($(Gut5.center) + (-0.2, -0.45)$) circle (2pt);
+			
+			\drawFlowArrow
+			\node[font=\bfseries\small] at (-1.2, \yQMPRMP) {QMP};
+			\node[font=\bfseries\small] at (1.2, \yQMPRMP) {RMP}; 
+			\begin{scope}[shift={(-1.2, \yCharts)}, scale=0.6] \drawBeakerAbs{0.15}{0.15}{0.6} \end{scope}
+			\begin{scope}[shift={(1.2, {\yCharts+0.75})}, scale=0.6]
+				\def\radius{1.3}
+				\shade[top color=liquidorange, bottom color=liquidblue] (0,0) circle (\radius);
+				\draw[thick, slate] (0,0) circle (\radius);
+				\node[font=\bfseries\Huge, black, opacity=0.3, xshift=1pt, yshift=-1pt] at (0, 0) {?};
+				\node[font=\bfseries\Huge, white] at (0, 0) {?};
+			\end{scope}
+			\node[align=center, font=\scriptsize, anchor=north] at (0, \yObs) {\textbf{Observation:}\\Variable Oral \%\\(Variable by Load)};
+		\end{scope}
+		
+		\node[inner sep=0pt, anchor=center] (Plots) at (9.2, \yBoxplot) {
+			\includegraphics[width=25cm]{/home/zw/zwLearn/zwProjHust/proj_oral_gut/fig/fig_main/fig1/fig1_data_panel_16inch.pdf }
+		};
+		
+		% --- Target Coordinates for Boxplot Titles ---
+		\coordinate (source_barrier) at (4.8, -1.2);
+		\coordinate (source_gut) at (9.6, -1.2);
+		\coordinate (source_other) at (14.4, -1.2); 
+		\coordinate (source_systemic) at (19.2, -1.2); 
+		
+		\coordinate (target_ppi)   at ($(Plots.center) + (-8.8, 4.65)$);
+		\coordinate (target_lc_L)  at ($(Plots.center) + (-3.2, 4.65)$); 
+		\coordinate (target_lc_R)  at ($(Plots.center) + (-2.9, 4.65)$); 
+		\coordinate (target_ibd_L) at ($(Plots.center) + (2.9, 4.7)$);  
+		\coordinate (target_ibd_R) at ($(Plots.center) + (3.2, 4.65)$);  
+		\coordinate (target_anti)  at ($(Plots.center) + (9.5, 4.65)$);
+		
+		% --- Draw Trajectory Lines ---
+		\begin{scope}
+			\tikzset{traj_barrier/.style={->, >=Stealth, line width=1.5pt, color=barrier_traj_col, opacity=0.6, shorten >=2pt}}
+			\tikzset{traj_gut/.style={->, >=Stealth, line width=1.5pt, color=gut_traj_col, opacity=0.6, shorten >=2pt}}
+			\tikzset{traj_systemic/.style={->, >=Stealth, line width=1.5pt, color=gray, opacity=0.6, shorten >=2pt}}
+			\tikzset{traj_unknown/.style={->, >=Stealth, line width=1.8pt, color=orange!80!black, opacity=0.8, shorten >=2pt}}
+			
+			% 🎯 动态优化的出射角度 (out): 
+			% 核心逻辑：凡是目标在左侧的，分配 245~255 的左倾角度；凡是目标在右侧的，分配 280~285 的右倾角度。
+			% 配合 in=90，线条会像抛物线一样自然升起再垂直平稳落下。
+			
+			% 黄线：起点 X=4.8。PPI 在极左 (dx=-4.4)，分配 out=245；LC 在右 (dx=+1.2)，分配 out=280。
+			\draw[traj_barrier] ($(source_barrier)+(-0.15,0)$) to[out=245, in=90, looseness=0.8] ($(target_ppi)+(0.35,0)$);
+			\draw[traj_barrier] ($(source_barrier)+(0.15,0)$)  to[out=280, in=90, looseness=0.8] (target_lc_L);
+			
+			% 紫线：起点 X=9.6。LC 在左 (dx=-3.3)，分配 out=250；IBD 在右 (dx=+2.5)，分配 out=285。
+			\draw[traj_gut] ($(source_gut)+(-0.15,0)$) to[out=250, in=90, looseness=0.8] (target_lc_R);
+			\draw[traj_gut] ($(source_gut)+(0.15,0)$)  to[out=285, in=90, looseness=0.8] (target_ibd_L);
+			
+			% 橙线：起点 X=14.4。IBD 在左 (dx=-2.0)，分配 out=255。
+			\draw[traj_unknown] (source_other) to[out=255, in=90, looseness=0.8] (target_ibd_R);
+			
+			% 灰线：起点 X=19.2。Antibiotic 几乎在正下方，分配 out=270 且减小 looseness 使其绷直。
+			\draw[traj_systemic] (source_systemic) to[out=270, in=90, looseness=0.5] ($(target_anti)+(0.521,0)$);
+		\end{scope}
+		
+	\end{tikzpicture}
+\end{document}
