@@ -1,0 +1,86 @@
+# ==========================================
+# LSF 调度器总控配置 - 物种注释 (Profiling) 版本
+# ==========================================
+
+project_name: "skinbact_profiling"
+pipeline_type: "ngs"           # 调度器会根据这个去寻找 _1.fq.gz 和 _2.fq.gz
+base_work_dir: "/share/home/chengroup/longzhengwu/proj_skinbact/profiling_workdir"  # 调度器会在这里为每个 Chunk 创建独立的子目录
+dispatch_mode: "standard"      # chunk 并发模式
+
+# 你即将保存的改造后的 Python 脚本路径
+pipeline_script: "/share/home/chengroup/longzhengwu/proj_skinbact/code_profile/profiling_pipeline_v3.py"
+
+# 原始测序数据目录 (调度器会自动递归扫描)
+input_dirs:
+  - "/mnt/raid10/longzhengwu/longzhengwu_data/proj_skinbact/backup_from_raid7_20260523/skinbact_data2"
+  - "/mnt/raid10/longzhengwu/longzhengwu_data/proj_skinbact/batch001"
+  - "/mnt/raid10/longzhengwu/longzhengwu_data/proj_skinbact/batch002"
+  - "/mnt/raid10/longzhengwu/longzhengwu_data/proj_skinbact/batch003"
+
+
+use_symlink: true
+chunk_size: 8  # 每个投递的批次包含 4 个样本 (根据你的数据量和节点实力调整)
+
+# ==========================================
+# 节点资源池 
+# ==========================================
+node_list: 
+  - c001   # 或者 c001, c002 等你的集群节点名
+  - c003
+  - c005
+
+node_defaults:
+  lsf_cores: 52
+  lsf_mem: "200GB"
+  threads:
+    qc: 8
+    bowtie: 13
+    metaphlan: 13
+    kraken: 13
+    sylph: 13
+    humann: 13    # HUMAnN3 的单任务线程数
+
+# ==========================================
+# 流水线基础业务配置
+# ==========================================
+pipeline_base_config:
+  run_profilers:
+    - metaphlan
+    # - kraken2
+    # - sylph
+    - humann
+
+  # --- 数据库路径 ---
+  host_index: /share/home/chengroup/longzhengwu/database_cache/hg38/hg38_index
+  mp4db_dir: /share/home/chengroup/longzhengwu/database_cache/metaphlan4_database_v202403_vOct22
+  kraken2_db: /mnt/raid7-3/longzhengwu/longzhengwu_data/database_cache/kraken2/PlusPF/PlusPF_20251015
+  mp4_index: mpa_vOct22_CHOCOPhlAnSGB_202403
+  
+  # Sylph
+  run_sylph_fungi_only: True
+  sylph_db: >
+    /mnt/raid7-3/longzhengwu/longzhengwu_data/database_cache/sylph/gtdb-r226-c200-dbv1.syldb
+    /mnt/raid7-3/longzhengwu/longzhengwu_data/database_cache/sylph/fungi-refseq-2025-10-11-c200-dbv1.syldb
+  sylph_tax_db: >
+    /mnt/raid7-3/longzhengwu/longzhengwu_data/database_cache/sylph/gtdb_r226_metadata.tsv.gz
+    /mnt/raid7-3/longzhengwu/longzhengwu_data/database_cache/sylph/fungi_refseq_2025-10-11_metadata.tsv.gz
+  sylph_db_fungi: /mnt/raid7-3/longzhengwu/longzhengwu_data/database_cache/sylph/fungi-refseq-2025-10-11-c200-dbv1.syldb
+  sylph_tax_db_fungi: /mnt/raid7-3/longzhengwu/longzhengwu_data/database_cache/sylph/fungi_refseq_2025-10-11_metadata.tsv.gz
+
+  # HUMAnN3 数据库
+  humann_db_nuc: /share/home/chengroup/longzhengwu/database_cache/humann4_databases/chocophlan
+  humann_db_prot: /share/home/chengroup/longzhengwu/database_cache/humann4_databases/uniref
+ 
+  # --- 环境配置 ---
+  conda_sh_path: /mnt/raid6/longzhengwu/anaconda3/etc/profile.d/conda.sh
+  
+  env_main: zwskinbact 
+  env_kraken: kraken2  
+  env_sylph: sylph
+  env_metaphlan: humann4_env
+  env_humann: humann4_env
+
+  # --- 其他选项 ---
+  auto_cleanup_qc: False           # 跑完删除质控和去宿主的庞大 fq.gz
+  clean_extra_humann_files: True  # 合并打包后删除庞大的 humann 中间表
+  metaphlan_ver: 411
